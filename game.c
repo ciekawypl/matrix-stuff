@@ -29,6 +29,7 @@ const int screenHeight = 450;
 
 
 static bool mouseDraggs = false;
+static bool mouseDrops = false;
 
 
 static Table table[TABLE_SIZE][TABLE_SIZE] = {0};
@@ -88,6 +89,11 @@ void updateLogic(void){
         mouseDraggs = false;
     }
 
+    if (IsMouseButtonReleased(0)){
+        mouseDrops = true;   
+    }
+    
+
     //      handles dragging status
     if (!mouseDraggs){
         for (int i = 0; i < TABLE_SIZE; i++){
@@ -101,25 +107,37 @@ void updateLogic(void){
     }
 
     //      handles dragged box position
-    for (int i = 0; i < TABLE_SIZE; i++){
-        if (IsMouseButtonDown(0) && dragBox[i].isHeld){
-            dragBox[i].position = GetMousePosition();
-        } else{
+    if (mouseDraggs && !mouseDrops){
+        for (int i = 0; i < TABLE_SIZE; i++){
+            if (IsMouseButtonDown(0) && dragBox[i].isHeld){
+                dragBox[i].position = GetMousePosition();
+            } 
+        }
+    } else if(mouseDrops){
+        for (int i = 0; i < TABLE_SIZE; i++){
             dragBox[i].position = dragBox[i].defPosition;
         }
     }
 
     //      handles visibiltiy of slots
-    for (int i = 0; i < TABLE_SIZE; i++){
-        if (dragBox[i].isHeld){
-            for (int j = 0; j < TABLE_SIZE; j++){
-                dragSlot[j][0].isVisible = true;
-            }
-            dragSlot[i][0].isVisible = false;
-            
-        } else if (!IsMouseButtonDown(0)){
+    if (mouseDraggs && !mouseDrops){
+        for (int i = 0; i < TABLE_SIZE; i++){
+            if (dragBox[i].isHeld){
+                for (int j = 0; j < TABLE_SIZE; j++){
+                    dragSlot[j][0].isVisible = true;
+                }
+                dragSlot[i][0].isVisible = false;
+            } 
+        }
+    } else if(mouseDrops){
+        for (int i = 0; i < TABLE_SIZE; i++){
             dragSlot[i][0].isVisible = false;
         }
+    }
+
+    //      pinnacle of coding
+    if (mouseDrops){
+        mouseDrops = false;
     }
 }
 
