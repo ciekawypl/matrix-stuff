@@ -94,6 +94,8 @@ void updateLogic(void){
             if (IsMouseButtonDown(0) && CheckCollisionPointRec(GetMousePosition(), (Rectangle){dragBox[i].position.x, dragBox[i].position.y, 20, 20})){
                 dragBox[i].isHeld = true;
                 mouseDraggs = true;
+            } else{
+                dragBox[i].isHeld = false;
             }
         }
     }
@@ -103,8 +105,6 @@ void updateLogic(void){
         if (IsMouseButtonDown(0) && dragBox[i].isHeld){
             dragBox[i].position = GetMousePosition();
         } else{
-            dragBox[i].isHeld = false;
-            // isDragged = false;
             dragBox[i].position = dragBox[i].defPosition;
         }
     }
