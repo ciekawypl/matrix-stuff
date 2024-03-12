@@ -14,6 +14,7 @@ typedef struct DragBox{
     Vector2 position;
     Vector2 defPosition;
     bool isHeld;
+    bool dropped;
 } DragBox;
 
 typedef struct DragSlot{
@@ -71,6 +72,7 @@ void initGame(void){
         dragBox[i].position = (Vector2){table[0][i].position.x - 30, table[0][i].position.y};
         dragBox[i].defPosition = dragBox[i].position;
         dragBox[i].isHeld = false;
+        dragBox[i].dropped = false;
     }
     
     for (int i = 0; i < TABLE_SIZE; i++){
@@ -101,6 +103,9 @@ void updateLogic(void){
                 dragBox[i].isHeld = true;
                 mouseDraggs = true;
             } else{
+                if (dragBox[i].isHeld){
+                    dragBox[i].dropped = true;
+                }
                 dragBox[i].isHeld = false;
             }
         }
@@ -118,6 +123,29 @@ void updateLogic(void){
             dragBox[i].position = dragBox[i].defPosition;
         }
     }
+
+    //      handles row addition and subtraction
+    if (mouseDrops){
+        for (int i = 0; i < TABLE_SIZE; i++){
+            for (int j = 0; j < 2; j++){
+                if (dragSlot[i][0].isVisible && CheckCollisionPointRec(GetMousePosition(), (Rectangle){dragSlot[i][j].position.x, dragSlot[i][j].position.y, 20, 20})){
+                    for (int k = 0; k < TABLE_SIZE; k++){
+                        if (dragBox[k].dropped){
+                            dragBox[k].dropped = false;
+                            for (int l = 0; l < TABLE_SIZE; l++){
+                                if (dragSlot[i][j].operant == 1){
+                                    table[l][i].value = table[l][i].value + table[l][k].value;
+                                } else{
+                                    table[l][i].value = table[l][i].value - table[l][k].value;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
 
     //      handles visibiltiy of slots
     if (mouseDraggs && !mouseDrops){
