@@ -1,7 +1,4 @@
-#include "raylib.h"
-#define RAYGUI_IMPLEMENTATION
-#include <raygui.h>
-
+#include "menu.h"
 
 #define TABLE_SIZE 3
 
@@ -15,28 +12,18 @@ typedef struct Table{
 typedef struct DragBox{
     Vector2 position;
     Vector2 defPosition;
-    bool isHeld;
-    bool dropped;
+    Rectangle space;
+    bool dragged;
 } DragBox;
 
 //      those are the boxes that show up once you drag something with your mouse, they perform calculations when dropped on
 typedef struct DragSlot{
     Vector2 position;
+    Rectangle space;
     Color color;
     int operant;
     bool isVisible;
 } DragSlot;
-
-
-const int screenWidth = 800;
-const int screenHeight = 450;
-
-
-static bool mouseDraggs = false;
-static bool mouseDrops = false;
-
-
-static bool signSwapped = false;
 
 
 static Table table[TABLE_SIZE][TABLE_SIZE] = {0};
@@ -44,34 +31,15 @@ static DragBox dragBox[TABLE_SIZE] = {0};
 static DragSlot dragSlot[2][TABLE_SIZE] = {0};
 
 
-static void initGame(void);
-static void drawFrame(void);
-static void updateLogic(void);
+static bool signSwapped = false;
 
 
-int main(){
-    InitWindow(screenWidth, screenHeight, "Matrix Calculator");
+static Mouse mouse = {0};
 
-    //      this runs only at the start of the program
-    initGame();
-
-    SetTargetFPS(60);
-
-    // those run every frame
-    while (!WindowShouldClose()){
-        //      updates things like collision and calculations
-        updateLogic();
-
-        //      drawes everything thats on the screen
-        drawFrame();
-    }
-    
-    CloseWindow();
-    return 0;
-}
 
 void initGame(void){
-    mouseDraggs = false;
+    mouse.mouseDraggs = false;
+    mouse.mouseDrops = false;
 
     //      sets parametrs for the numbers in the matrix
     for (int i = 0; i < TABLE_SIZE; i++){
@@ -81,12 +49,12 @@ void initGame(void){
         }
     }
 
-    //      sett parametrs for dragboxes
+    //      sets parametrs for dragboxes
     for (int i = 0; i < TABLE_SIZE; i++){
         dragBox[i].position = (Vector2){table[0][i].position.x - 60, table[0][i].position.y};
         dragBox[i].defPosition = dragBox[i].position;
-        dragBox[i].isHeld = false;
-        dragBox[i].dropped = false;
+        dragBox[i].dragged = false;
+        dragBox[i].space = (Rectangle){dragBox[i].position.x, dragBox[i].position.y, 20, 20};
     }
     
     //      sets parametrs for dragslots
@@ -94,104 +62,66 @@ void initGame(void){
         dragSlot[i][0].operant = 0;
         dragSlot[i][0].color = BLUE;
         dragSlot[i][0].position = (Vector2){dragBox[i].position.x - 60, dragBox[i].position.y};
+        dragSlot[i][0].space = (Rectangle){dragSlot[i][0].position.x, dragSlot[i][0].position.y, 20, 20};
     
         dragSlot[i][1].operant = 1;
         dragSlot[i][1].color = RED;
         dragSlot[i][1].position = (Vector2){dragBox[i].position.x - 30, dragBox[i].position.y};
+        dragSlot[i][1].space = (Rectangle){dragSlot[i][1].position.x, dragSlot[i][1].position.y, 20, 20};
 
         dragSlot[i][2].operant = 2;
         dragSlot[i][2].color = YELLOW;
         dragSlot[i][2].position = (Vector2){table[TABLE_SIZE-1][i].position.x + 30, table[TABLE_SIZE-1][i].position.y};
+        dragSlot[i][2].space = (Rectangle){dragSlot[i][2].position.x, dragSlot[i][2].position.y, 20, 20};
     }
 }
 
 void updateLogic(void){
-    if (!IsMouseButtonDown(0)){
-        mouseDraggs = false;
-    }
-    if (IsMouseButtonReleased(0)){
-        mouseDrops = true;   
-    }
-    
-
-    //      handles dragging status
-    if (!mouseDraggs){
-        for (int i = 0; i < TABLE_SIZE; i++){
-            if (IsMouseButtonDown(0) && CheckCollisionPointRec(GetMousePosition(), (Rectangle){dragBox[i].position.x, dragBox[i].position.y, 20, 20})){
-                dragBox[i].isHeld = true;
-                mouseDraggs = true;
-            } else{
-                if (dragBox[i].isHeld){
-                    dragBox[i].dropped = true;
+    for (int i = 0; i < TABLE_SIZE; i++){
+        switch (handleDragPosition(&dragBox[i].space, &dragBox[i].position, dragBox[i].defPosition, &dragBox[i].dragged, &mouse.mouseDraggs)){
+            //      handles visibility of slots
+            case 1:{
+                for (int j = 0; j < TABLE_SIZE; j++){
+                    dragSlot[j][0].isVisible = true;
                 }
-                dragBox[i].isHeld = false;
+                dragSlot[i][0].isVisible = false;
+                break;
             }
-        }
-    }
-
-    //      handles dragged box position
-    if (mouseDraggs && !mouseDrops){
-        for (int i = 0; i < TABLE_SIZE; i++){
-            if (IsMouseButtonDown(0) && dragBox[i].isHeld){
-                dragBox[i].position = GetMousePosition();
-            } 
-        }
-    } else if(mouseDrops){
-        for (int i = 0; i < TABLE_SIZE; i++){
-            dragBox[i].position = dragBox[i].defPosition;
-        }
-    }
-
-    //      handles row addition and subtraction
-    if (mouseDrops){
-        for (int i = 0; i < TABLE_SIZE; i++){
-            for (int j = 0; j < 3; j++){
-                if (dragSlot[i][0].isVisible && CheckCollisionPointRec(GetMousePosition(), (Rectangle){dragSlot[i][j].position.x, dragSlot[i][j].position.y, 20, 20})){
-                    for (int k = 0; k < TABLE_SIZE; k++){
-                        if (dragBox[k].dropped){
-                            dragBox[k].dropped = false;
-                            for (int l = 0; l < TABLE_SIZE; l++){
-                                if (dragSlot[i][j].operant == 0){
-                                    table[l][i].value = table[l][i].value - table[l][k].value;
-                                } else if(dragSlot[i][j].operant == 1){
-                                    table[l][i].value = table[l][i].value + table[l][k].value;
-                                } else{
+            //      handles addition, subtraction and row swapping
+            case 2:{
+                for (int j = 0; j < TABLE_SIZE; j++){
+                    for (int k = 0; k < 3; k++){
+                        if (CheckCollisionPointRec(GetMousePosition(), dragSlot[j][k].space)){
+                            if (dragSlot[j][k].operant == 0){
+                                for (int l = 0; l < TABLE_SIZE; l++){
+                                    table[l][j].value = table[l][j].value - table[l][i].value;
+                                }
+                            } else if(dragSlot[j][k].operant == 1){
+                                for (int l = 0; l < TABLE_SIZE; l++){
+                                    table[l][j].value = table[l][j].value + table[l][i].value;
+                                }
+                            } else if(dragSlot[j][k].operant == 2){
+                                for (int l = 0; l < TABLE_SIZE; l++){
                                     int x = table[l][i].value;
-                                    table[l][i].value = table[l][k].value;
-                                    table[l][k].value = x;
-                                    if (signSwapped){
-                                        signSwapped = false;
-                                    } else{
-                                        signSwapped = true;
-                                    }
+                                    table[l][i].value = table[l][j].value;
+                                    table[l][j].value = x;
+                                }
+                                if (signSwapped){
+                                    signSwapped = false;
+                                } else{
+                                    signSwapped = true;
                                 }
                             }
                         }
                     }
                 }
+
+                for (int j = 0; j < TABLE_SIZE; j++){
+                    dragSlot[j][0].isVisible = false;
+                }
+                break;
             }
         }
-    }
-
-    //      handles visibiltiy of slots
-    if (mouseDraggs && !mouseDrops){
-        for (int i = 0; i < TABLE_SIZE; i++){
-            if (dragBox[i].isHeld){
-                for (int j = 0; j < TABLE_SIZE; j++){
-                    dragSlot[j][0].isVisible = true;
-                }
-                dragSlot[i][0].isVisible = false;
-            } 
-        }
-    } else if(mouseDrops){
-        for (int i = 0; i < TABLE_SIZE; i++){
-            dragSlot[i][0].isVisible = false;
-        }
-    }
-
-    //      pinnacle of coding
-    if (mouseDrops){
-        mouseDrops = false;
     }
 }
 
@@ -210,9 +140,9 @@ void drawFrame(void){
         //      renders hideable slots
         for (int i = 0; i < TABLE_SIZE; i++){
             if (dragSlot[i][0].isVisible){
-                DrawRectangle(dragSlot[i][0].position.x, dragSlot[i][0].position.y, 20, 20, dragSlot[i][0].color);
-                DrawRectangle(dragSlot[i][1].position.x, dragSlot[i][1].position.y, 20, 20, dragSlot[i][1].color);
-                DrawRectangle(dragSlot[i][2].position.x, dragSlot[i][2].position.y, 20, 20, dragSlot[i][2].color);
+                DrawRectangleRec(dragSlot[i][0].space, dragSlot[i][0].color);
+                DrawRectangleRec(dragSlot[i][1].space, dragSlot[i][1].color);
+                DrawRectangleRec(dragSlot[i][2].space, dragSlot[i][2].color);
 
                 DrawText(TextFormat("+"), dragSlot[i][1].position.x+5, dragSlot[i][1].position.y+1, 20, WHITE);
                 DrawText(TextFormat("-"), dragSlot[i][0].position.x+6, dragSlot[i][0].position.y+1, 20, WHITE);
@@ -221,17 +151,16 @@ void drawFrame(void){
         
         //      renders draggable boxes
         for (int i = 0; i < TABLE_SIZE; i++){
-            if (!dragBox[i].isHeld){
-                DrawRectangle(dragBox[i].position.x, dragBox[i].position.y, 20, 20, BLACK);
+            if (!dragBox[i].dragged){
+                DrawRectangleRec(dragBox[i].space, BLACK);
             } else{
-                DrawRectangle(dragBox[i].position.x, dragBox[i].position.y, 20, 20, GREEN);
+                DrawRectangleRec(dragBox[i].space, GREEN);
             }
             DrawText(TextFormat("="), dragBox[i].position.x+6, dragBox[i].position.y+1, 20, WHITE);
         }
 
         //      renders "-" after swapping rows
-        if (signSwapped)
-        {
+        if (signSwapped){
             DrawText("-", table[0][0].position.x - 30, table[0][0].position.y + ((table[0][TABLE_SIZE-1].position.y - table[0][0].position.y)/2), 30, BLACK);
         }
         

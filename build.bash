@@ -1,1 +1,1 @@
-cc game.c -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
+cc menu.h menu.c dragndrop.c test.c game.c -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
